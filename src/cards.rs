@@ -1,12 +1,18 @@
+//! Types that represent a deck of cards.
+//!
+//! There is nothing specific to the rules of Blackjack in this module. It can
+//! be reused as-is for other card games.
+
 extern crate rand;
 
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 
 use std::fmt;
+use std::ops::Index;
 
 /// A card's suit.
-#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Suit {
     Clubs,
     Diamonds,
@@ -18,11 +24,11 @@ pub enum Suit {
 pub const ALL_SUITS: [Suit; 4] = [Suit::Clubs, Suit::Diamonds, Suit::Hearts, Suit::Spades];
 
 impl Suit {
-    /// Return symbol associated with the suit.
+    /// Returns a single-character symbol associated with the suit.
     ///
     /// Examples:
     ///
-    /// ```rust
+    /// ```
     /// use blackjack::cards::Suit;
     ///
     /// assert_eq!(Suit::Clubs.symbol(), "♣");
@@ -49,7 +55,6 @@ impl fmt::Display for Suit {
 /// A card's rank.
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Clone, Copy)]
 pub enum Rank {
-    Ace = 1,
     Two = 2,
     Three = 3,
     Four = 4,
@@ -62,11 +67,11 @@ pub enum Rank {
     Jack = 11,
     Queen = 12,
     King = 13,
+    Ace = 14,
 }
 
 /// Array of all `Rank` values
 pub const ALL_RANKS: [Rank; 13] = [
-    Rank::Ace,
     Rank::Two,
     Rank::Three,
     Rank::Four,
@@ -79,14 +84,15 @@ pub const ALL_RANKS: [Rank; 13] = [
     Rank::Jack,
     Rank::Queen,
     Rank::King,
+    Rank::Ace,
 ];
 
 impl Rank {
-    /// Return a single-character symbol for the rank.
+    /// Returns a single-character symbol for the rank.
     ///
     /// Examples:
     ///
-    /// ```rust
+    /// ```
     /// use blackjack::cards::Rank;
     ///
     /// assert_eq!(Rank::Ace.symbol(), "A");
@@ -97,6 +103,7 @@ impl Rank {
     /// assert_eq!(Rank::Jack.symbol(), "J");
     /// assert_eq!(Rank::Queen.symbol(), "Q");
     /// assert_eq!(Rank::King.symbol(), "K");
+    /// ```
     pub fn symbol(self) -> &'static str {
         match self {
             Rank::Ace => "A",
@@ -116,16 +123,87 @@ impl Rank {
     }
 }
 
-/// A card.
-#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Clone, Copy)]
+/// A playing card, with a rank and suit.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Card {
     rank: Rank,
     suit: Suit,
 }
 
-/// Create a `Card`
+impl Card {
+    /// Returns the card's `Rank`
+    pub fn rank(self) -> Rank {
+        self.rank
+    }
+
+    /// Returns the card's `Suit`
+    pub fn suit(self) -> Suit {
+        self.suit
+    }
+}
+
+impl fmt::Display for Card {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}{}", self.rank.symbol(), self.suit.symbol())
+    }
+}
+
+/// Creates a `Card` with specified rank and suit.
+///
+/// Examples:
+///
+/// ```
+/// use blackjack::cards::card;
+/// use blackjack::cards::Rank::*;
+/// use blackjack::cards::Suit::*;
+///
+/// let aceOfSpades = card(Ace, Spades);
+/// assert_eq!(aceOfSpades.rank(), Ace);
+/// assert_eq!(aceOfSpades.suit(), Spades);
+///
+/// let twoOfDiamonds = card(Two, Diamonds);
+/// assert_eq!(twoOfDiamonds.rank(), Two);
+/// assert_eq!(twoOfDiamonds.suit(), Diamonds);
+/// ```
 pub fn card(rank: Rank, suit: Suit) -> Card {
     Card { rank, suit }
+}
+
+/// A `Hand` is a set of cards held by a player.
+#[derive(Debug)]
+pub struct Hand {
+    cards: Vec<Card>,
+}
+
+impl Default for Hand {
+    fn default() -> Self {
+        Hand { cards: vec![] }
+    }
+}
+
+impl Index<usize> for Hand {
+    type Output = Card;
+
+    fn index(&self, index: usize) -> &Card {
+        &self.cards[index]
+    }
+}
+
+impl Hand {
+    /// Returns the count of cards in the hand.
+    pub fn len(&self) -> usize {
+        self.cards.len()
+    }
+
+    /// Returns `true` if the hand contains no cards.
+    pub fn is_empty(&self) -> bool {
+        self.cards.is_empty()
+    }
+
+    /// Adds a card to the hand.
+    pub fn push(&mut self, card: Card) {
+        self.cards.push(card);
+    }
 }
 
 /// A collection of cards.
@@ -137,27 +215,32 @@ pub struct Deck {
     cards: Vec<Card>,
 }
 
-impl Deck {
-    /// Return a shuffled deck of 52 cards.
-    pub fn shuffled() -> Deck {
-        let mut deck = Deck::default();
-        deck.shuffle();
-        deck
-    }
+impl Index<usize> for Deck {
+    type Output = Card;
 
-    /// Shuffle the cards.
-    pub fn shuffle(&mut self) {
-        self.cards.shuffle(&mut thread_rng());
-    }
-
-    /// Return a read-only reference to the cards vector.
-    pub fn cards(&self) -> &[Card] {
-        &self.cards
+    fn index(&self, index: usize) -> &Card {
+        &self.cards[index]
     }
 }
 
 impl Default for Deck {
-    /// Return an ordered deck of 52 cards.
+    /// Returns an ordered deck of 52 cards.
+    ///
+    /// Examples:
+    ///
+    /// ```
+    /// use blackjack::cards::{card, Deck};
+    /// use blackjack::cards::Rank::*;
+    /// use blackjack::cards::Suit::*;
+    ///
+    /// let deck = Deck::default();
+    /// assert_eq!(deck.len(), 52);
+    /// assert_eq!(deck[0], card(Two, Clubs));
+    /// assert_eq!(deck[1], card(Three, Clubs));
+    /// // ...
+    /// assert_eq!(deck[50], card(King, Spades));
+    /// assert_eq!(deck[51], card(Ace, Spades));
+    /// ```
     fn default() -> Self {
         let mut cards = vec![];
         for &suit in ALL_SUITS.iter() {
@@ -169,9 +252,111 @@ impl Default for Deck {
     }
 }
 
-impl fmt::Display for Card {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}{}", self.rank.symbol(), self.suit.symbol())
+impl Deck {
+    /// Returns a shuffled deck of 52 cards.
+    ///
+    /// Examples:
+    ///
+    /// ```
+    /// use blackjack::cards::Deck;
+    ///
+    /// let deck = Deck::shuffled();
+    /// assert_eq!(deck.len(), 52);
+    /// ```
+    pub fn shuffled() -> Deck {
+        let mut deck = Deck::default();
+        deck.shuffle();
+        deck
+    }
+
+    /// Shuffles the cards.
+    pub fn shuffle(&mut self) {
+        self.cards.shuffle(&mut thread_rng());
+    }
+
+    /// Returns count of cards remaining in the deck.
+    pub fn len(&self) -> usize {
+        self.cards.len()
+    }
+
+    /// Returns `true` if the deck contains no cards.
+    pub fn is_empty(&self) -> bool {
+        self.cards.is_empty()
+    }
+
+    /// Removes the top card from the deck and returns it, or `None` if no cards
+    /// remain.
+    ///
+    /// Examples:
+    ///
+    /// ```
+    /// use blackjack::cards::{card, Deck};
+    /// use blackjack::cards::Rank::*;
+    /// use blackjack::cards::Suit::*;
+    ///
+    /// let mut deck = Deck::default();
+    /// assert_eq!(deck.len(), 52);
+    ///
+    /// let card1 = deck.pop();
+    /// assert_eq!(deck.len(), 51);
+    /// assert_eq!(card1, Some(card(Ace, Spades)));
+    ///
+    /// let card2 = deck.pop();
+    /// assert_eq!(deck.len(), 50);
+    /// assert_eq!(card2, Some(card(King, Spades)));
+    ///
+    /// for _ in 1..=50 {
+    ///     let card = deck.pop();
+    ///     assert!(card.is_some());
+    /// }
+    ///
+    /// let card = deck.pop();
+    /// assert_eq!(card, None);
+    /// ```
+    pub fn pop(&mut self) -> Option<Card> {
+        self.cards.pop()
+    }
+
+    /// Deal the specified number of hands from a deck.
+    ///
+    /// Examples:
+    ///
+    /// ```
+    /// use blackjack::cards::{card, Deck};
+    /// use blackjack::cards::Rank::*;
+    /// use blackjack::cards::Suit::*;
+    ///
+    /// let mut deck = Deck::default();
+    /// let hands = deck.deal_hands(3, 2);
+    ///
+    /// assert_eq!(hands.len(), 3);
+    /// assert_eq!(deck.len(), 46);
+    ///
+    /// assert_eq!(hands[0].len(), 2);
+    /// assert_eq!(hands[0][0], card(Ace, Spades));
+    /// assert_eq!(hands[0][1], card(Jack, Spades));
+    ///
+    /// assert_eq!(hands[1].len(), 2);
+    /// assert_eq!(hands[1][0], card(King, Spades));
+    /// assert_eq!(hands[1][1], card(Ten, Spades));
+    ///
+    /// assert_eq!(hands[2].len(), 2);
+    /// assert_eq!(hands[2][0], card(Queen, Spades));
+    /// assert_eq!(hands[2][1], card(Nine, Spades));
+    /// ```
+    pub fn deal_hands(&mut self, hand_count: u32, cards_per_hand: u32) -> Vec<Hand> {
+        let mut hands = vec![];
+        for _ in 0..hand_count {
+            hands.push(Hand::default())
+        }
+
+        for _ in 0..cards_per_hand {
+            for hand in hands.iter_mut() {
+                hand.push(self.pop().expect("unable to draw card from deck"))
+            }
+        }
+
+        hands
     }
 }
 
@@ -196,21 +381,5 @@ mod tests {
             format!("{:?}", card(Ace, Spades)),
             "Card { rank: Ace, suit: Spades }"
         );
-    }
-
-    #[test]
-    fn deck_default() {
-        let d = Deck::default();
-        assert_eq!(d.cards.len(), 52);
-        assert_eq!(d.cards[0], card(Ace, Clubs));
-        assert_eq!(d.cards[1], card(Two, Clubs));
-        assert_eq!(d.cards[50], card(Queen, Spades));
-        assert_eq!(d.cards[51], card(King, Spades));
-    }
-
-    #[test]
-    fn deck_shuffled() {
-        let d = Deck::shuffled();
-        assert_eq!(d.cards.len(), 52);
     }
 }
